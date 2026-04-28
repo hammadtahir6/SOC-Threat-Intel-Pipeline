@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOC Threat Intel Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #050b14;
+            --surface: #0a111c;
+            --neon-blue: #00f3ff;
+            --neon-red: #ff003c;
+            --neon-green: #00ff66;
+            --text-main: #a9bada;
+            --grid-line: rgba(0, 243, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Consolas', 'Courier New', monospace;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            background-image: 
+                linear-gradient(var(--grid-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        .dashboard-container {
+            width: 100%;
+            max-width: 1100px;
+            background: var(--surface);
+            padding: 30px;
+            border-radius: 8px;
+            border: 1px solid var(--neon-blue);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.1), inset 0 0 20px rgba(0, 243, 255, 0.05);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--neon-blue);
+            padding-bottom: 15px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 26px;
+            color: var(--neon-blue);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .badge {
+            background-color: rgba(255, 0, 60, 0.1);
+            color: var(--neon-red);
+            border: 1px solid var(--neon-red);
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(255, 0, 60, 0.2);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 5px rgba(255, 0, 60, 0.2); }
+            50% { box-shadow: 0 0 15px rgba(255, 0, 60, 0.6); }
+            100% { box-shadow: 0 0 5px rgba(255, 0, 60, 0.2); }
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background-color: rgba(0, 243, 255, 0.05);
+            color: var(--neon-blue);
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 15px;
+            border-bottom: 1px solid var(--neon-blue);
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #1a2639;
+            font-size: 15px;
+        }
+
+        tr:hover {
+            background-color: rgba(0, 243, 255, 0.05);
+            cursor: crosshair;
+        }
+
+        .ip-address {
+            color: #fff;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .score-critical {
+            color: var(--neon-red);
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(255, 0, 60, 0.6);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--neon-green);
+            text-shadow: 0 0 8px rgba(0, 255, 102, 0.5);
+            font-size: 18px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-container">
+        <div class="header">
+            <h1>[|||] SOC Threat Intel Feed</h1>
+            <div class="badge" id="threat-count">INITIALIZING CONNECTION...</div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>SYS_ID</th>
+                    <th>TARGET_IP</th>
+                    <th>VECTOR</th>
+                    <th>THREAT_LEVEL</th>
+                    <th>DATA_SOURCE</th>
+                </tr>
+            </thead>
+            <tbody id="table-body">
+                <tr><td colspan="5" class="loading">> ESTABLISHING SECURE UPLINK TO KAFKA PIPELINE...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const apiUrl = 'http://localhost:8083/api/threats';
+
+        async function fetchThreats() {
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                
+                const tableBody = document.getElementById('table-body');
+                const threatCount = document.getElementById('threat-count');
+                
+                // PERFORMANCE FIX: Only take the top 100 threats to prevent browser crash
+                const recentThreats = data.slice(0, 100);
+                
+                threatCount.innerText = `[ ${data.length} ] CRITICAL THREATS LOGGED`;
+
+                // PERFORMANCE FIX: Build the HTML string first, then inject it once
+                let rowsHtml = '';
+                
+                recentThreats.forEach(threat => {
+                    rowsHtml += `
+                        <tr>
+                            <td style="color: #4b6584;">#${threat.id}</td>
+                            <td class="ip-address">> ${threat.iocValue}</td>
+                            <td style="color: var(--neon-green);">${threat.iocType}</td>
+                            <td class="score-critical">[ ${threat.severityScore} / 100 ]</td>
+                            <td style="font-size: 12px; color: #747d8c;">${threat.source}</td>
+                        </tr>
+                    `;
+                });
+
+                // Inject all 100 rows instantly
+                tableBody.innerHTML = rowsHtml;
+
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('table-body').innerHTML = 
+                    '<tr><td colspan="5" style="color: var(--neon-red); text-align: center;">> ERROR: CONNECTION TO BACKEND API LOST. CHECK PORT 8083.</td></tr>';
+            }
+        }
+
+        // Add a slight delay for dramatic hacker effect before loading data
+        setTimeout(fetchThreats, 800);
+    </script>
+</body>
+</html>
